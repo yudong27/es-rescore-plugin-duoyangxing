@@ -7,7 +7,7 @@
     <groupId>org.example</groupId>
     <artifactId>es-score-plugin</artifactId>
     <version>7.15.0</version>
-    <name>es-plugin-hello</name>
+    <name>es-plugin-rescore</name>
     <description>es-expert-script-to-score</description>
 
     <properties>
