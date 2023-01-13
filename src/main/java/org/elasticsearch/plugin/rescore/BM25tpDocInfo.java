@@ -22,8 +22,8 @@ class BM25tpDocInfo {
     public String docString;
     public float bm25ScoreOriginal; // es计算的bm25得分，不知道boost的具体算法，有时和我用bm25公式计算的结果不一致
     public double termProximityScore; // 不包含decay的term proximity项
-    public float bm25ScoreByPlugin; // 
-    public float bm25tpScoreWithDecay; // 包含decay的bm25+term_proximity项
+    public double bm25tpScoreNoDecay; // bm25+tp+char没有decay时的得分，用于pass1排序
+    public float bm25tpScoreWithDecay; // 包含decay的bm25+term_proximity+char项，用于pass2排序
     public double boost;
     // public double char_boost; // term左右单字对bm25算法的boost
     public double charHitScore; // 单个字命中的得分，目前是term idf除总长度加和
@@ -39,6 +39,7 @@ class BM25tpDocInfo {
     public double avgdl;
     public long docTermCount = 0; // 当前doc内term总数量，不管有没有命中query
     public long docTermHitCount = 0; // 当前doc内命中query term的数量
+    public long docCharHitCount = 0; // 单字命中率
     public Map<String, Long> docTermFreq; // 当前doc里每个term的数量，不管有没有命中query
 
     public String query;
@@ -62,6 +63,8 @@ class BM25tpDocInfo {
         bm25OrderWithTermProximity = -1;
         bm25OrderWithDecay = -1;
         docString = "";
+        docTermHitCount = 0;
+        docCharHitCount = 0;
     }
 
     public String toString() {
@@ -71,6 +74,7 @@ class BM25tpDocInfo {
         sb.append("docString:").append(docString).append(", ");
         sb.append("bm25ScoreOriginal:").append(bm25ScoreOriginal).append(", ");
         sb.append("termProximityScore:").append(termProximityScore).append(", ");
+        sb.append("bm25tpScoreNoDecay:").append(bm25tpScoreNoDecay).append(", ");
         sb.append("bm25tpScoreWithDecay:").append(bm25tpScoreWithDecay).append(", ");
         sb.append("boost:").append(boost).append(", ");
         //sb.append("charHitCount:").append(charHitCount).append(", ");
@@ -91,6 +95,11 @@ class BM25tpDocInfo {
             int endoffset = startoffset + docTermsInfo.getTermLength(i);
             for(int j=startoffset; j< endoffset;j++) {
                 termHitOrNot[j] = 1;
+            }
+        }
+        for(int i=0;i<docString.length();i++) {
+            if(query.indexOf(docString.charAt(i)) != -1) {
+                docCharHitCount++;
             }
         }
     }

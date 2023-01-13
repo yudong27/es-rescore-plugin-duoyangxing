@@ -277,6 +277,7 @@ class BM25tpRescorer implements Rescorer {
                         int offset = pe.startOffset();
                         if (docInfos[i].queryTermsInfo.has(termstr)) {
                             docInfos[i].docTermsInfo.addTermPos(termstr, offset, 1); //命中
+                            docInfos[i].docTermCount += 1;
                         } else {
                             docInfos[i].docTermsInfo.addTermPos(termstr, offset, 0); //没命中
                         }
@@ -339,15 +340,21 @@ class BM25tpRescorer implements Rescorer {
         for (int i = 0; i < docInfos.length; i++) {
             //logger.info("Calc tp_score and adjacet score ==========" + i + "================");
             //logger.info(docInfos[i].docTermsInfo.toString());
+            if(docInfos[i].docCharHitCount * 2.0 < docInfos[i].docString.length()) {
+                // 要求char命中率大于50%
+                docInfos[i].bm25tpScoreNoDecay = (double)0.0;
+                continue;
+            }
             double tp_score = calcTermProximity(docInfos[i], boost, null, 1.0f);
             //logger.info("START CALC TERM ADJACENT CHAR MATCH");
             calcTermAdjacentCharMatch(docInfos[i], 3);
             docInfos[i].termProximityScore = tp_score;
+            docInfos[i].bm25tpScoreNoDecay = docInfos[i].termProximityScore 
+                + docInfos[i].charHitScore + docInfos[i].bm25ScoreOriginal;
         }
         // 按照bm25*char_boost+term_proximity得分排序
         Arrays.sort(docInfos, (a, b) -> {
-            if (a.termProximityScore + a.charHitScore + a.bm25ScoreOriginal
-                > b.termProximityScore + b.charHitScore + b.bm25ScoreOriginal) {
+            if (a.bm25tpScoreNoDecay > b.bm25tpScoreNoDecay) {
                 return -1;
             }
             return 1;
@@ -367,7 +374,8 @@ class BM25tpRescorer implements Rescorer {
             double tp_score_decay = calcTermProximity(docInfos[i], boost, tokenUsedCount, context.decay);
             double bm25_score_decay = calcBM25(docInfos[i], boost, tokenUsedCount, context.decay);
 
-            docInfos[i].bm25tpScoreWithDecay = (float) (tp_score_decay + docInfos[i].charHitScore + bm25_score_decay ); // 取代原有得分
+            docInfos[i].bm25tpScoreWithDecay = (float) (tp_score_decay 
+                        + docInfos[i].charHitScore + bm25_score_decay ); // 取代原有得分
             docIdToScore.put(docInfos[i].docid, docInfos[i].bm25tpScoreWithDecay);
         }
         Arrays.sort(docInfos, (a, b) -> {
