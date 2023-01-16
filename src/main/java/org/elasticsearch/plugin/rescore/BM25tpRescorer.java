@@ -149,7 +149,7 @@ class BM25tpRescorer implements Rescorer {
                     // 单词匹配，看左右是否有term未匹配，但char匹配的
                     charHitScore += docInfo.docTermRightHit(i, j, char_window_size);
                     charHitScore += docInfo.docTermLeftHit(i, j, char_window_size);
-                    // logger.info("========== Adjacent: docIndex="+i+"/"+dt+" queryIndex="+j+" charHitScore="+charHitScore);
+                    //logger.info("========== Adjacent: docIndex="+i+"/"+dt+" queryIndex="+j+" charHitScore="+charHitScore);
                 }
             }
         }
@@ -339,14 +339,14 @@ class BM25tpRescorer implements Rescorer {
         // 首先计算每个doc的term proximity得分，和原来的bm25得分求和后排序
         for (int i = 0; i < docInfos.length; i++) {
             //logger.info("Calc tp_score and adjacet score ==========" + i + "================");
-            //logger.info(docInfos[i].docTermsInfo.toString());
+            // logger.info(docInfos[i].docTermsInfo.toString());
             if(docInfos[i].docCharHitCount * 2.0 < docInfos[i].docString.length()) {
                 // 要求char命中率大于50%
-                docInfos[i].bm25tpScoreNoDecay = (double)0.0;
+                docInfos[i].bm25tpScoreNoDecay = (double)-1.0;
                 continue;
             }
             double tp_score = calcTermProximity(docInfos[i], boost, null, 1.0f);
-            //logger.info("START CALC TERM ADJACENT CHAR MATCH");
+            // logger.info("START CALC TERM ADJACENT CHAR MATCH");
             calcTermAdjacentCharMatch(docInfos[i], 3);
             docInfos[i].termProximityScore = tp_score;
             docInfos[i].bm25tpScoreNoDecay = docInfos[i].termProximityScore 
@@ -354,6 +354,11 @@ class BM25tpRescorer implements Rescorer {
         }
         // 按照bm25*char_boost+term_proximity得分排序
         Arrays.sort(docInfos, (a, b) -> {
+            if (a.bm25tpScoreNoDecay == b.bm25tpScoreNoDecay) {
+                if(a.bm25OrderOriginal < b.bm25OrderOriginal)
+                    return -1;
+                return 1;
+            }
             if (a.bm25tpScoreNoDecay > b.bm25tpScoreNoDecay) {
                 return -1;
             }
@@ -371,6 +376,10 @@ class BM25tpRescorer implements Rescorer {
             //    docInfos[i].bm25tpScoreWithDecay = (float) 0.0;
             //    continue;
             // }
+            if(docInfos[i].bm25tpScoreNoDecay < 0.0) {
+                docInfos[i].bm25tpScoreWithDecay = (float)-1.0;
+                continue;
+            }
             double tp_score_decay = calcTermProximity(docInfos[i], boost, tokenUsedCount, context.decay);
             double bm25_score_decay = calcBM25(docInfos[i], boost, tokenUsedCount, context.decay);
 
@@ -384,29 +393,44 @@ class BM25tpRescorer implements Rescorer {
             }
             return 1;
         });
+        ArrayList<ScoreDoc> newScoreDocs = new ArrayList();
         for(int i=0;i<docInfos.length;i++) {
             docInfos[i].bm25OrderWithDecay = i;
             //logger.info(docInfos[i].toString());
-        }
-        float base_score = topDocs.scoreDocs[0].score; // 设置一个基础分，让新的得分比原来都大，不改变rescore window size之后的顺序
-        for (int i = 0; i < end; i++) {
-            if (docIdToScore.containsKey(topDocs.scoreDocs[i].doc)) {
-                topDocs.scoreDocs[i].score = docIdToScore.get(topDocs.scoreDocs[i].doc) + base_score;
+            if(docInfos[i].bm25tpScoreWithDecay > 0.0) {
+                newScoreDocs.add(new ScoreDoc(docInfos[i].docid,
+                    docInfos[i].bm25tpScoreWithDecay));
             }
         }
-        // Sort by score descending, then docID ascending, just like lucene's
-        // QueryRescorer
-        Arrays.sort(topDocs.scoreDocs, (a, b) -> {
-            if (a.score > b.score) {
-                return -1;
-            }
-            if (a.score < b.score) {
-                return 1;
-            }
-            // Safe because doc ids >= 0
-            return a.doc - b.doc;
-        });
-        return topDocs;
+        if(newScoreDocs.size() == 0) {
+            newScoreDocs.add(new ScoreDoc(docInfos[0].docid,
+                docInfos[0].bm25tpScoreWithDecay));
+        }
+        // float base_score = topDocs.scoreDocs[0].score; 
+        // 设置一个基础分，让新的得分比原来都大，不改变rescore window size之后的顺序
+        // 不在rescore窗口内，或者不符合过滤条件的，都舍弃
+        ScoreDoc[] scoreDocs = null;
+        scoreDocs = newScoreDocs.toArray(new ScoreDoc[newScoreDocs.size()]);
+        TopDocs newTopDocs = new TopDocs(topDocs.totalHits, scoreDocs);
+        return newTopDocs;
+        // for (int i = 0; i < end; i++) {
+        //     if (docIdToScore.containsKey(topDocs.scoreDocs[i].doc)) {
+        //         topDocs.scoreDocs[i].score = docIdToScore.get(topDocs.scoreDocs[i].doc);
+        //     }
+        // }
+        // // Sort by score descending, then docID ascending, just like lucene's
+        // // QueryRescorer
+        // Arrays.sort(topDocs.scoreDocs, (a, b) -> {
+        //     if (a.score > b.score) {
+        //         return -1;
+        //     }
+        //     if (a.score < b.score) {
+        //         return 1;
+        //     }
+        //     // Safe because doc ids >= 0
+        //     return a.doc - b.doc;
+        // });
+        // return topDocs;
     }
 
     @Override

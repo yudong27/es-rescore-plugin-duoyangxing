@@ -76,7 +76,9 @@ public class BM25tpTermInfo {
             for(int j=0;j<termPosArr.get(i).term.length();j++) {
                 int coffset = j+termPosArr.get(i).offset;
                 sb.setCharAt(coffset, termPosArr.get(i).term.charAt(j));
-                charHit[coffset] = i;
+                if(charHit[coffset] == -1) {
+                    charHit[coffset] = i;
+                }
             }
         }
         rawText = sb.toString();

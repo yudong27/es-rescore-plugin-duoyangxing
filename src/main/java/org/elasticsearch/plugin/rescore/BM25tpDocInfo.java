@@ -149,7 +149,7 @@ class BM25tpDocInfo {
             // 此char对应的term没有命中query，获取其idf
             //logger.info("Right docCharOffset:"+(deoffset+j)+"/"+docString.charAt(deoffset +j)
             //            +" queryCharOffset:"+(qeoffset+j)+"/"+query.charAt(qeoffset +j) + " hitIndex:"+hitIndex
-            //            +" term:"+hitTerm);
+            //            +" term:"+hitTerm + " queryHas:"+queryTermsInfo.has(hitTerm));
             if(queryTermsInfo.has(hitTerm)) continue;
             if(docString.charAt(deoffset + j) == query.charAt(qeoffset + j)) {
                 double idf = getTokenIDF(hitTerm);
@@ -171,7 +171,7 @@ class BM25tpDocInfo {
             String hitTerm = docTermsInfo.getTerm(hitIndex);
             //logger.info("Left docCharOffset:"+(deoffset-j)+"/"+docString.charAt(deoffset - j)
             //            +" queryCharOffset:"+(qeoffset-j)+"/"+query.charAt(qeoffset - j)+" hitIndex:"+hitIndex
-            //            +" term:"+hitTerm);
+            //            +" term:"+hitTerm + " queryHas:"+queryTermsInfo.has(hitTerm));
             if(queryTermsInfo.has(hitTerm)) continue;
             if(docString.charAt(deoffset - j) == query.charAt(qeoffset - j)) {
                 double idf = getTokenIDF(hitTerm);
